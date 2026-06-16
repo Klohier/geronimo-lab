@@ -1,9 +1,4 @@
-resource "proxmox_virtual_environment_download_file" "ubuntu_cloud_image" {
-  content_type = "iso"
-  datastore_id = "local"
-  node_name    = var.venv_node_name
-  url          = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
-}
+
 
 resource "proxmox_virtual_environment_vm" "example" {
   name      = "example-vm"
@@ -19,8 +14,13 @@ resource "proxmox_virtual_environment_vm" "example" {
   # that may hang if the guest agent is not installed.
   stop_on_destroy = true
 
+  agent {
+    enabled = true
+  }
+
   cpu {
     cores = 2
+    type  = "x86-64-v3"
   }
 
   memory {
@@ -34,7 +34,7 @@ resource "proxmox_virtual_environment_vm" "example" {
 
   disk {
     datastore_id = var.datastore_id
-    file_id      = proxmox_virtual_environment_download_file.ubuntu_cloud_image.id
+    file_id      = "local:import/rhel.qcow2"
     interface    = "virtio0"
     iothread     = true
     discard      = "on"
@@ -52,4 +52,8 @@ resource "proxmox_virtual_environment_vm" "example" {
   network_device {
     bridge = "vmbr0"
   }
+}
+
+output "vm_ipv4" {
+  value = proxmox_virtual_environment_vm.example.ipv4_addresses
 }
