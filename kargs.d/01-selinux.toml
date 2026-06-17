@@ -1,0 +1,2 @@
+kargs = ["selinux=1", "enforcing=1"]
+
