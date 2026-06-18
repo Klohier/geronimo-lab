@@ -6,6 +6,7 @@ variable "venv_node_name" {
 variable "datastore_id" {
   type        = string
   description = "Proxmox datastore for VM disks"
+  default     = "local-lvm"
 }
 
 variable "venv_endpoint" {

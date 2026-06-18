@@ -1,59 +1,50 @@
 
+locals {
+  image_id = "local:import/disk.qcow2"
 
-resource "proxmox_virtual_environment_vm" "example" {
-  name      = "example-vm"
-  node_name = var.venv_node_name
-
-  description = "Managed by Terraform"
-  machine     = "q35"
-  bios        = "ovmf"
-  started     = true
-
-  # Always set stop_on_destroy when started = true,
-  # otherwise Terraform will attempt a graceful ACPI shutdown
-  # that may hang if the guest agent is not installed.
-  stop_on_destroy = true
-
-  agent {
-    enabled = true
-  }
-
-  cpu {
-    cores = 2
-    type  = "x86-64-v3"
-  }
-
-  memory {
-    dedicated = 2048
-  }
-
-  efi_disk {
-    datastore_id = var.datastore_id
-    type         = "4m"
-  }
-
-  disk {
-    datastore_id = var.datastore_id
-    file_id      = "local:import/rhel.qcow2"
-    interface    = "virtio0"
-    iothread     = true
-    discard      = "on"
-    size         = 20
-  }
-
-  initialization {
-    ip_config {
-      ipv4 {
-        address = "dhcp"
-      }
-    }
-  }
-
-  network_device {
-    bridge = "vmbr0"
-  }
+  all_vms = merge(
+    { for i, vm in module.vms : "vm-${i + 1}" => vm },
+    { "caddy-01" = module.caddy },
+    { "nginx-01" = module.nginx }
+  )
 }
 
-output "vm_ipv4" {
-  value = proxmox_virtual_environment_vm.example.ipv4_addresses
+module "vms" {
+  source         = "./modules/vm/"
+  count          = 2
+  vm_name        = "vm-${count.index + 1}"
+  image_id       = local.image_id
+  venv_node_name = var.venv_node_name
+  datastore_id   = var.datastore_id
+  tags           = ["bootc"]
+  ip_octet       = 60 + count.index
 }
+
+module "caddy" {
+  source         = "./modules/vm/"
+  vm_name        = "caddy-01"
+  vm_id          = 112
+  image_id       = local.image_id
+  venv_node_name = var.venv_node_name
+  datastore_id   = var.datastore_id
+  cores          = 2
+  memory         = 2048
+  disk_size      = 20
+  tags           = ["bootc"]
+  ip_octet       = 200
+}
+
+module "nginx" {
+  source         = "./modules/vm/"
+  vm_name        = "nginx-01"
+  vm_id          = 113
+  image_id       = local.image_id
+  venv_node_name = var.venv_node_name
+  datastore_id   = var.datastore_id
+  cores          = 2
+  memory         = 2048
+  disk_size      = 20
+  tags           = ["bootc"]
+  ip_octet       = 207
+}
+
