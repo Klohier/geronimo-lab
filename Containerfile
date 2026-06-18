@@ -6,6 +6,7 @@ RUN dnf group install -y "Minimal Install" && \
     dnf install -y \
         bash-completion \
         chrony \
+        cloud-init \
         firewalld \
         git \
         jq \
@@ -45,6 +46,10 @@ COPY selinux/selinux-lockdown.service /usr/lib/systemd/system/selinux-lockdown.s
 # Enable services
 RUN systemctl enable \
     chronyd.service \
+    cloud-init.service \
+    cloud-init-local.service \
+    cloud-config.service \
+    cloud-final.service \
     firewalld.service \
     qemu-guest-agent.service \
     selinux-lockdown.service \
