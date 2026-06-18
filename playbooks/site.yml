@@ -1,0 +1,13 @@
+---
+- name: Gather facts from all bootc VMs
+  hosts: bootc
+  gather_facts: false
+  tasks:
+    - name: Get IP from inventory
+      setup:
+        gather_subset: min
+      ignore_errors: true
+  ignore_unreachable: true
+
+- import_playbook: caddy.yml
+- import_playbook: nginx.yaml

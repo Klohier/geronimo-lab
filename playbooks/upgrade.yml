@@ -1,0 +1,8 @@
+---
+- name: Upgrade bootc VMs
+  hosts: bootc
+  become: true
+
+  tasks:
+    - name: Upgrade and reboot
+      command: bootc upgrade --apply

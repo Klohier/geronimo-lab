@@ -1,0 +1,59 @@
+---
+- name: Login to Red Hat registry
+  containers.podman.podman_login:    
+    username: "{{ vault_rh_username }}"
+    password: "{{ vault_rh_password }}"
+    registry: registry.redhat.io
+
+
+- name: Create Caddy directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /var/caddy
+    - /var/caddy/data
+    - /var/caddy/config
+
+- name: Template Caddyfile
+  template:
+    src: Caddyfile.j2
+    dest: /var/caddy/Caddyfile
+    mode: '0644'
+
+- name: Pull Caddy image
+  containers.podman.podman_image:
+    name: registry.redhat.io/hi/caddy:latest
+    state: present
+
+- name: Remove existing Caddy container if present
+  containers.podman.podman_container:
+    name: caddy
+    state: absent
+
+- name: Run Caddy container
+  containers.podman.podman_container:
+    name: caddy
+    image: registry.redhat.io/hi/caddy:latest
+    state: started
+    restart_policy: always
+    ports:
+      - "80:8080"
+      - "443:8443"
+    volumes:
+      - /var/caddy/Caddyfile:/etc/caddy/Caddyfile:ro,Z
+      - /var/caddy/data:/data:Z
+      - /var/caddy/config:/config:Z
+
+- name: Open firewall ports
+  firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop:
+    - 80/tcp
+    - 443/tcp

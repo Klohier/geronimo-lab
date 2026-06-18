@@ -1,0 +1,28 @@
+---
+- name: Test VM connectivity and write MOTD
+  hosts: vm-1,vm-2
+  become: true
+
+  tasks:
+    - name: Write MOTD
+      copy:
+        dest: /etc/motd
+        content: |
+          ============================================
+          Host: {{ inventory_hostname }}
+          IP: {{ ansible_host }}
+          Managed by: Ansible
+          Image: geronimo-lab bootc
+          ============================================
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Confirm file exists
+      stat:
+        path: /etc/motd
+      register: motd_file
+
+    - name: Print result
+      debug:
+        msg: "MOTD written successfully on {{ inventory_hostname }}"

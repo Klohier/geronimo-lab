@@ -1,0 +1,50 @@
+---
+- name: Deploy nginx container
+  hosts: nginx-01
+  become: true
+
+  vars:
+    webroot: /var/www/nginx
+
+  tasks:
+    - name: Create webroot directory
+      file:
+        path: "{{ webroot }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy custom index page
+      copy:
+        dest: "{{ webroot }}/index.html"
+        content: |
+          <!DOCTYPE html>
+          <html>
+            <head><title>Geronimo Lab</title></head>
+            <body>
+              <h1>Geronimo Lab</h1>
+              <p>Host: {{ inventory_hostname }}</p>
+              <p>Managed by Ansible + bootc</p>
+            </body>
+          </html>
+        mode: '0644'
+
+    - name: Open firewall port
+      firewalld:
+        service: http
+        permanent: true
+        state: enabled
+        immediate: true
+
+    - name: Deploy nginx container
+      containers.podman.podman_container:
+        name: nginx
+        image: docker.io/nginx:latest
+        state: started
+        restart_policy: always
+        force_restart: true
+        ports:
+          - "80:80"
+        volumes:
+          - "{{ webroot }}:/usr/share/nginx/html:ro,Z"
