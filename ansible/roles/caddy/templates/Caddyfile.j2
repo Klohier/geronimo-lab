@@ -1,0 +1,14 @@
+{
+  email keijilohier@protonmail.com
+  http_port 8080
+  https_port 8443
+  auto_https off
+}
+
+{% for host in groups['proxmox_tardis_qemu'] %}
+{% if host != 'caddy-01' and hostvars[host]['ansible_host'] is defined and 'bootc' in (hostvars[host].get('proxmox_tags_parsed', [])) and hostvars[host]['service_port'] is defined %}
+{{ host }}.geronimolab.com:8080 {
+  reverse_proxy http://{{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['service_port'] }}
+}
+{% endif %}
+{% endfor %}

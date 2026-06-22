@@ -1,0 +1,5 @@
+- name: Deploy Caddy reverse proxy
+  hosts: caddy-01
+  become: true
+  roles:
+    - caddy
