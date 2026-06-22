@@ -1,0 +1,8 @@
+
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.vault_pass
+.terraform/
+.vault_pass
+authorized_keys
