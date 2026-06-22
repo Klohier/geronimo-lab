@@ -1,6 +1,6 @@
 
 locals {
-  image_id = "local:import/disk.qcow2"
+  image_id = "local:import/bootc-fedora-44-qcow2-x86_64.qcow2"
 
   all_vms = merge(
     { for i, vm in module.vms : "vm-${i + 1}" => vm },
