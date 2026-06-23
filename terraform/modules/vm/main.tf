@@ -53,6 +53,10 @@ resource "proxmox_virtual_environment_vm" "this" {
     dns {
       servers = ["192.168.50.213"]
     }
+    user_account {
+      username = "ansible"
+      keys     = [file("~/.ssh/id_ed25519_ansible.pub")]
+    }
   }
   network_device {
     bridge  = "vmbr0"

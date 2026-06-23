@@ -47,8 +47,5 @@ RUN useradd -m -G wheel ansible && \
     mkdir -p /home/ansible/.ssh && \
     chmod 700 /home/ansible/.ssh && \
     chown -R ansible:ansible /home/ansible/.ssh
-# SSH key
-COPY authorized_keys /home/ansible/.ssh/authorized_keys
-RUN chmod 600 /home/ansible/.ssh/authorized_keys && \
-    chown ansible:ansible /home/ansible/.ssh/authorized_keys
+
 RUN bootc container lint

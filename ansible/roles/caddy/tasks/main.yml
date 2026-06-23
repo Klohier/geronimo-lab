@@ -1,10 +1,9 @@
 ---
 - name: Login to Red Hat registry
-  containers.podman.podman_login:    
+  containers.podman.podman_login:
     username: "{{ vault_rh_username }}"
     password: "{{ vault_rh_password }}"
     registry: registry.redhat.io
-
 
 - name: Create Caddy directories
   file:
@@ -23,16 +22,12 @@
     src: Caddyfile.j2
     dest: /var/caddy/Caddyfile
     mode: '0644'
+  notify: restart caddy
 
 - name: Pull Caddy image
   containers.podman.podman_image:
     name: registry.redhat.io/hi/caddy:latest
     state: present
-
-- name: Remove existing Caddy container if present
-  containers.podman.podman_container:
-    name: caddy
-    state: absent
 
 - name: Run Caddy container
   containers.podman.podman_container:
