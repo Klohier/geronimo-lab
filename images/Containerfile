@@ -1,8 +1,7 @@
-FROM registry.redhat.io/rhel10/rhel-bootc@sha256:b29e3aa327c8125c459a724bceafdb948758971803d97ba874492264b55b4cfc
+FROM quay.io/fedora/fedora-bootc@sha256:f4b99b78545cfa9604bd0e31e18d8c5b8016e00c1835778903956ac55ddd2c1f
 
-RUN dnf group install -y "Minimal Install" && \
-    dnf config-manager --add-repo https://pkgs.tailscale.com/stable/rhel/10/tailscale.repo && \
-    dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm && \
+RUN dnf install -y dnf5-plugins && \
+    dnf config-manager addrepo --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo && \
     dnf install -y \
         bash-completion \
         chrony \
@@ -19,54 +18,38 @@ RUN dnf group install -y "Minimal Install" && \
         vim \
         vim-enhanced \
         yq && \
-    dnf config-manager --set-disabled epel && \
     dnf clean all
-
 # CIS hardening
 RUN dnf install -y openscap-scanner scap-security-guide && \
     oscap xccdf eval --remediate \
-        --profile xccdf_org.ssgproject.content_profile_cis \
-        /usr/share/xml/scap/ssg/content/ssg-rhel10-ds.xml ; \
+        --profile xccdf_org.ssgproject.content_profile_cis_server_l1 \
+        /usr/share/xml/scap/ssg/content/ssg-fedora-ds.xml ; \
     dnf remove -y openscap-scanner scap-security-guide && \
     dnf clean all
-
 RUN sed -i 's/^#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/^#PasswordAuthentication yes.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-
 # Crypto policy
 RUN update-crypto-policies --set DEFAULT
-
 # SELinux kernel args
 RUN mkdir -p /usr/lib/bootc/kargs.d
 COPY kargs.d/01-selinux.toml /usr/lib/bootc/kargs.d/01-selinux.toml
-
 # SELinux lockdown service
 COPY selinux/selinux-lockdown.service /usr/lib/systemd/system/selinux-lockdown.service
-
 # Enable services
 RUN systemctl enable \
     chronyd.service \
-    cloud-init.service \
-    cloud-init-local.service \
-    cloud-config.service \
-    cloud-final.service \
     firewalld.service \
     qemu-guest-agent.service \
     selinux-lockdown.service \
     tailscaled.service
-
 # Ansible user
 RUN useradd -m -G wheel ansible && \
     echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/wheel && \
     mkdir -p /home/ansible/.ssh && \
     chmod 700 /home/ansible/.ssh && \
     chown -R ansible:ansible /home/ansible/.ssh
-
 # SSH key
 COPY authorized_keys /home/ansible/.ssh/authorized_keys
 RUN chmod 600 /home/ansible/.ssh/authorized_keys && \
     chown ansible:ansible /home/ansible/.ssh/authorized_keys
-
-#Just Testing
-
 RUN bootc container lint
