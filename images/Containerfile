@@ -34,7 +34,7 @@ RUN mkdir -p /usr/lib/bootc/kargs.d
 COPY kargs.d/01-selinux.toml /usr/lib/bootc/kargs.d/01-selinux.toml
 # SELinux lockdown service
 COPY selinux/selinux-lockdown.service /usr/lib/systemd/system/selinux-lockdown.service
-# Enable services
+# Enable services 
 RUN systemctl enable \
     chronyd.service \
     firewalld.service \
