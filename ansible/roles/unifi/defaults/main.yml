@@ -1,0 +1,21 @@
+# UniFi Controller Connection
+unifi_base_url: "https://192.168.1.1"
+unifi_site_id: "88f7af54-98f8-306a-a1c7-c9349722b1f6"
+unifi_token: "{{ lookup('env', 'UBIQUITI_API_TOKEN') }}"
+
+# Key IPs 
+adguard_ip: "192.168.50.213"
+
+unifi_zone_names:
+  external: "External"
+  internal: "Internal"
+  iot: "IOT"
+  homelab: "Homelab"
+  hotspot: "Hotspot"
+
+unifi_network_names:
+  default: "Default"
+  trusted: "Trusted Devices"
+  iot: "IOT Devices"
+  homelab: "Homelab Server"
+  calis_friends: "Cali's Friends"

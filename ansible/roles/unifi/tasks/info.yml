@@ -1,0 +1,7 @@
+---
+- name: Get application info
+  ubiquiti.unifi_api.network:
+    path: "/v1/info"
+    method: GET
+  register: unifi_info
+

@@ -1,0 +1,43 @@
+---
+- name: UniFi Zones
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  module_defaults:
+    group/ubiquiti.unifi_api.common:
+      base_url: "{{ unifi_base_url }}"
+      token: "{{ unifi_token }}"
+  roles:
+    - unifi
+  tasks:
+    - name: Set desired zones
+      set_fact:
+        desired_zones:
+          - name: "Internal"
+          - name: "IOT"
+          - name: "Homelab"
+          - name: "Hotspot"
+
+    - name: Get existing zones
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/firewall/zones"
+        method: GET
+      register: existing_zones
+
+    - name: Build existing zones map
+      set_fact:
+        existing_zone_names: "{{ existing_zones.data.data | map(attribute='name') | list }}"
+
+    - name: Create missing zones
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/firewall/zones"
+        method: POST
+        body:
+          name: "{{ item.name }}"
+      loop: "{{ desired_zones }}"
+      when: item.name not in existing_zone_names
+
+    - name: Show zone status
+      debug:
+        msg: "Zone '{{ item.name }}' - {{ 'already exists' if item.name in existing_zone_names else 'created' }}"
+      loop: "{{ desired_zones }}"

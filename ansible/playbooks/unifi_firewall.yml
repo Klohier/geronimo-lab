@@ -1,0 +1,212 @@
+---
+- name: UniFi Firewall Policies
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  module_defaults:
+    group/ubiquiti.unifi_api.common:
+      base_url: "{{ unifi_base_url }}"
+      token: "{{ unifi_token }}"
+  roles:
+    - unifi
+  tasks:
+    - name: Set desired policies
+      set_fact:
+        desired_policies:
+          - name: "Allow IOT to Internet"
+            action: "ALLOW"
+            return_traffic: false
+            source_zone: "{{ zone_iot }}"
+            dest_zone: "{{ zone_external }}"
+
+          - name: "Allow Homelab to Internet"
+            action: "ALLOW"
+            return_traffic: false
+            source_zone: "{{ zone_homelab }}"
+            dest_zone: "{{ zone_external }}"
+
+          - name: "Allow Internal to Homelab"
+            action: "ALLOW"
+            return_traffic: true
+            source_zone: "{{ zone_internal }}"
+            dest_zone: "{{ zone_homelab }}"
+
+          - name: "Allow Homelab to Internal"
+            action: "ALLOW"
+            return_traffic: true
+            source_zone: "{{ zone_homelab }}"
+            dest_zone: "{{ zone_internal }}"
+
+          - name: "Block IOT to Internal"
+            action: "BLOCK"
+            return_traffic: false
+            source_zone: "{{ zone_iot }}"
+            dest_zone: "{{ zone_internal }}"
+
+          - name: "Block IOT to Homelab"
+            action: "BLOCK"
+            return_traffic: false
+            source_zone: "{{ zone_iot }}"
+            dest_zone: "{{ zone_homelab }}"
+
+          - name: "Block Hotspot to Internal"
+            action: "BLOCK"
+            return_traffic: false
+            source_zone: "{{ zone_hotspot }}"
+            dest_zone: "{{ zone_internal }}"
+
+          - name: "Block Hotspot to Homelab"
+            action: "BLOCK"
+            return_traffic: false
+            source_zone: "{{ zone_hotspot }}"
+            dest_zone: "{{ zone_homelab }}"
+
+        desired_policies_with_ports:
+          - name: "Allow IOT to AdGuard DNS UDP"
+            action: "ALLOW"
+            source_zone: "{{ zone_iot }}"
+            dest_zone: "{{ zone_homelab }}"
+            dest_ip: "{{ adguard_ip }}"
+            dest_port: 53
+            protocol: "UDP"
+
+          - name: "Allow IOT to AdGuard DNS TCP"
+            action: "ALLOW"
+            source_zone: "{{ zone_iot }}"
+            dest_zone: "{{ zone_homelab }}"
+            dest_ip: "{{ adguard_ip }}"
+            dest_port: 53
+            protocol: "TCP"
+
+          - name: "Allow Internal to AdGuard DNS UDP"
+            action: "ALLOW"
+            source_zone: "{{ zone_internal }}"
+            dest_zone: "{{ zone_homelab }}"
+            dest_ip: "{{ adguard_ip }}"
+            dest_port: 53
+            protocol: "UDP"
+
+          - name: "Allow Internal to AdGuard DNS TCP"
+            action: "ALLOW"
+            source_zone: "{{ zone_internal }}"
+            dest_zone: "{{ zone_homelab }}"
+            dest_ip: "{{ adguard_ip }}"
+            dest_port: 53
+            protocol: "TCP"
+
+          - name: "Allow Hotspot to AdGuard DNS UDP"
+            action: "ALLOW"
+            source_zone: "{{ zone_hotspot }}"
+            dest_zone: "{{ zone_homelab }}"
+            dest_ip: "{{ adguard_ip }}"
+            dest_port: 53
+            protocol: "UDP"
+
+          - name: "Allow Hotspot to AdGuard DNS TCP"
+            action: "ALLOW"
+            source_zone: "{{ zone_hotspot }}"
+            dest_zone: "{{ zone_homelab }}"
+            dest_ip: "{{ adguard_ip }}"
+            dest_port: 53
+            protocol: "TCP"
+
+    - name: Get existing policies
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/firewall/policies"
+        method: GET
+        query:
+          limit: 500
+          offset: 0
+      register: existing_policies
+
+    - name: Build list of existing policy names
+      set_fact:
+        existing_policy_names: "{{ existing_policies.data.data | map(attribute='name') | list }}"
+
+    - name: Create allow policies
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/firewall/policies"
+        method: POST
+        body:
+          name: "{{ item.name }}"
+          enabled: true
+          action:
+            type: "ALLOW"
+            allowReturnTraffic: "{{ item.return_traffic }}"
+          source:
+            zoneId: "{{ item.source_zone }}"
+          destination:
+            zoneId: "{{ item.dest_zone }}"
+          ipProtocolScope:
+            ipVersion: "IPV4_AND_IPV6"
+          loggingEnabled: false
+      loop: "{{ desired_policies }}"
+      when:
+        - item.name not in existing_policy_names
+        - item.action == "ALLOW"
+
+    - name: Create block policies
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/firewall/policies"
+        method: POST
+        body:
+          name: "{{ item.name }}"
+          enabled: true
+          action:
+            type: "BLOCK"
+          source:
+            zoneId: "{{ item.source_zone }}"
+          destination:
+            zoneId: "{{ item.dest_zone }}"
+          ipProtocolScope:
+            ipVersion: "IPV4_AND_IPV6"
+          loggingEnabled: false
+      loop: "{{ desired_policies }}"
+      when:
+        - item.name not in existing_policy_names
+        - item.action == "BLOCK"
+
+    - name: Create port specific allow policies
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/firewall/policies"
+        method: POST
+        body:
+          name: "{{ item.name }}"
+          enabled: true
+          action:
+            type: "ALLOW"
+            allowReturnTraffic: true
+          source:
+            zoneId: "{{ item.source_zone }}"
+          destination:
+            zoneId: "{{ item.dest_zone }}"
+            trafficFilter:
+              type: "IP_ADDRESS"
+              ipAddressFilter:
+                type: "IP_ADDRESSES"
+                matchOpposite: false
+                items:
+                  - type: "IP_ADDRESS"
+                    value: "{{ item.dest_ip }}"
+              portFilter:
+                type: "PORTS"
+                matchOpposite: false
+                items:
+                  - type: "PORT_NUMBER"
+                    value: "{{ item.dest_port }}"
+          ipProtocolScope:
+            ipVersion: "IPV4_AND_IPV6"
+            protocolFilter:
+              type: "NAMED_PROTOCOL"
+              protocol:
+                name: "{{ item.protocol }}"
+              matchOpposite: false
+          loggingEnabled: false
+      loop: "{{ desired_policies_with_ports }}"
+      when: item.name not in existing_policy_names
+
+    - name: Show skipped policies
+      debug:
+        msg: "Policy '{{ item.name }}' already exists, skipping"
+      loop: "{{ desired_policies + desired_policies_with_ports }}"
+      when: item.name in existing_policy_names

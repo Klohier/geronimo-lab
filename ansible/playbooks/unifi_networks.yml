@@ -1,0 +1,150 @@
+---
+- name: UniFi Network Setup
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  module_defaults:
+    group/ubiquiti.unifi_api.common:
+      base_url: "{{ unifi_base_url }}"
+      token: "{{ unifi_token }}"
+  vars:
+    desired_networks:
+      - name: "Default"
+        vlanId: 1
+        hostIp: "192.168.1.1"
+        isolated: false
+        zoneId: "{{ zone_internal }}"
+        dhcpStart: "192.168.1.6"
+        dhcpStop: "192.168.1.254"
+      - name: "Trusted Devices"
+        vlanId: 20
+        hostIp: "192.168.20.1"
+        isolated: false
+        zoneId: "{{ zone_internal }}"
+        dhcpStart: "192.168.20.6"
+        dhcpStop: "192.168.20.254"
+      - name: "IOT Devices"
+        vlanId: 30
+        hostIp: "192.168.30.1"
+        isolated: true
+        zoneId: "{{ zone_iot }}"
+        dhcpStart: "192.168.30.6"
+        dhcpStop: "192.168.30.254"
+      - name: "Cali's Friends"
+        vlanId: 40
+        hostIp: "192.168.40.1"
+        isolated: false
+        zoneId: "{{ zone_hotspot }}"
+        dhcpStart: "192.168.40.6"
+        dhcpStop: "192.168.40.254"
+      - name: "Homelab Server"
+        vlanId: 50
+        hostIp: "192.168.50.1"
+        isolated: true
+        zoneId: "{{ zone_homelab }}"
+        dhcpStart: "192.168.50.6"
+        dhcpStop: "192.168.50.254"
+  roles:
+    - unifi
+  tasks:
+    - name: Get existing networks list
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/networks"
+        method: GET
+      register: existing_networks
+
+    - name: Build name and id maps
+      set_fact:
+        existing_network_names: "{{ existing_networks.data.data | map(attribute='name') | list }}"
+        existing_networks_map: "{{ existing_networks.data.data | items2dict(key_name='name', value_name='id') }}"
+        desired_network_names: "{{ desired_networks | map(attribute='name') | list }}"
+
+    - name: Delete networks not in desired state
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/networks/{{ existing_networks_map[item] }}"
+        method: DELETE
+        query:
+          force: true
+      loop: "{{ existing_network_names }}"
+      when:
+        - item not in desired_network_names
+        - item != "Default"  
+    - name: Get full details for each existing network
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/networks/{{ existing_networks_map[item.name] }}"
+        method: GET
+      loop: "{{ desired_networks }}"
+      when: item.name in existing_network_names
+      register: existing_networks_detail
+
+    - name: Build full network details map
+      set_fact:
+        existing_networks_full: "{{ existing_networks_full | default({}) | combine({item.item.name: item.data}) }}"
+      loop: "{{ existing_networks_detail.results }}"
+      when: item.skipped is not defined
+
+    - name: Create missing networks
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/networks"
+        method: POST
+        body:
+          name: "{{ item.name }}"
+          vlanId: "{{ item.vlanId }}"
+          enabled: true
+          management: "GATEWAY"
+          isolationEnabled: "{{ item.isolated }}"
+          internetAccessEnabled: true
+          cellularBackupEnabled: false
+          zoneId: "{{ item.zoneId }}"
+          ipv4Configuration:
+            hostIpAddress: "{{ item.hostIp }}"
+            prefixLength: 24
+            autoScaleEnabled: false
+            dhcpConfiguration:
+              mode: "SERVER"
+              ipAddressRange:
+                start: "{{ item.dhcpStart }}"
+                stop: "{{ item.dhcpStop }}"
+              leaseTimeSeconds: 86400
+              pingConflictDetectionEnabled: true
+      loop: "{{ desired_networks }}"
+      when: item.name not in existing_network_names
+
+    - name: Update existing networks if changed
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/networks/{{ existing_networks_map[item.name] }}"
+        method: PUT
+        body:
+          name: "{{ item.name }}"
+          vlanId: "{{ item.vlanId }}"
+          enabled: true
+          management: "GATEWAY"
+          isolationEnabled: "{{ item.isolated }}"
+          internetAccessEnabled: true
+          cellularBackupEnabled: false
+          zoneId: "{{ item.zoneId }}"
+          ipv4Configuration:
+            hostIpAddress: "{{ item.hostIp }}"
+            prefixLength: 24
+            autoScaleEnabled: false
+            dhcpConfiguration:
+              mode: "SERVER"
+              ipAddressRange:
+                start: "{{ item.dhcpStart }}"
+                stop: "{{ item.dhcpStop }}"
+              leaseTimeSeconds: 86400
+              pingConflictDetectionEnabled: true
+      loop: "{{ desired_networks }}"
+      when:
+        - item.name in existing_network_names
+        - >
+          existing_networks_full[item.name].zoneId != item.zoneId or
+          existing_networks_full[item.name].isolationEnabled != item.isolated or
+          existing_networks_full[item.name].ipv4Configuration.hostIpAddress != item.hostIp or
+          existing_networks_full[item.name].ipv4Configuration.dhcpConfiguration.ipAddressRange.start != item.dhcpStart or
+          existing_networks_full[item.name].ipv4Configuration.dhcpConfiguration.ipAddressRange.stop != item.dhcpStop
+
+    - name: Show network status
+      debug:
+        msg: "Network '{{ item.name }}' (VLAN {{ item.vlanId }}) - isolation: {{ item.isolated }}"
+      loop: "{{ desired_networks }}"

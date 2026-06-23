@@ -1,0 +1,10 @@
+- name: List Networks
+  ubiquiti.unifi_api.network:
+    path: "/v1/sites/{{ unifi_site_id }}/networks"
+    method: GET
+  register: unifi_networks
+
+- name: Set network ID facts
+  set_fact:
+    "network_{{ item.key }}": "{{ unifi_networks.data.data | selectattr('name', 'equalto', item.value) | map(attribute='id') | first }}"
+  loop: "{{ unifi_network_names | dict2items }}"

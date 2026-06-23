@@ -1,0 +1,54 @@
+---
+- name: UniFi Zones Update
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  module_defaults:
+    group/ubiquiti.unifi_api.common:
+      base_url: "{{ unifi_base_url }}"
+      token: "{{ unifi_token }}"
+  roles:
+    - unifi
+  tasks:
+    - name: Set desired zones with network assignments
+      set_fact:
+        desired_zones:
+          - name: "Internal"
+            networkIds:
+              - "{{ network_default }}"
+              - "{{ network_trusted }}"
+          - name: "IOT"
+            networkIds:
+              - "{{ network_iot }}"
+          - name: "Homelab"
+            networkIds:
+              - "{{ network_homelab }}"
+          - name: "Hotspot"
+            networkIds:
+              - "{{ network_calis_friends }}"
+
+    - name: Get existing zones
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/firewall/zones"
+        method: GET
+      register: existing_zones
+
+    - name: Build existing zones maps
+      set_fact:
+        existing_zones_map: "{{ existing_zones.data.data | items2dict(key_name='name', value_name='id') }}"
+        existing_zones_networks: "{{ existing_zones.data.data | items2dict(key_name='name', value_name='networkIds') }}"
+
+    - name: Update zones with network IDs
+      ubiquiti.unifi_api.network:
+        path: "/v1/sites/{{ unifi_site_id }}/firewall/zones/{{ existing_zones_map[item.name] }}"
+        method: PUT
+        body:
+          name: "{{ item.name }}"
+          networkIds: "{{ item.networkIds }}"
+      loop: "{{ desired_zones }}"
+      when: existing_zones_networks[item.name] | sort != item.networkIds | sort
+
+    - name: Show zone update status
+      debug:
+        msg: "Zone '{{ item.name }}' - {{ 'updated' if existing_zones_networks[item.name] | sort != item.networkIds | sort else 'no change' }}"
+      loop: "{{ desired_zones }}"

@@ -1,0 +1,5 @@
+---
+- import_playbook: unifi_zones.yml
+- import_playbook: unifi_networks.yml
+- import_playbook: unifi_zones_update.yml
+- import_playbook: unifi_firewall.yml

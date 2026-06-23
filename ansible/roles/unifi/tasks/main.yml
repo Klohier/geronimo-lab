@@ -1,0 +1,6 @@
+---
+- import_tasks: info.yml
+- import_tasks: devices.yml
+- import_tasks: clients.yml
+- import_tasks: networks.yml
+- import_tasks: zones.yml

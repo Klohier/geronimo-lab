@@ -1,0 +1,8 @@
+---
+- name: List Adopted Devices
+  ubiquiti.unifi_api.network:
+    path: "/v1/sites/{{ unifi_site_id }}/devices"
+    method: GET
+  register: unifi_devices
+
+
