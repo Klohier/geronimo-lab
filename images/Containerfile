@@ -21,12 +21,10 @@ RUN dnf install -y dnf5-plugins && \
 # CIS hardening
 RUN dnf install -y openscap-scanner scap-security-guide && \
     oscap xccdf eval --remediate \
-        --profile xccdf_org.ssgproject.content_profile_cis_server_l1 \
+        --profile xccdf_org.ssgproject.content_profile_standard \
         /usr/share/xml/scap/ssg/content/ssg-fedora-ds.xml ; \
     dnf remove -y openscap-scanner scap-security-guide && \
     dnf clean all
-RUN sed -i 's/^#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && \
-    sed -i 's/^#PasswordAuthentication yes.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 # Crypto policy
 RUN update-crypto-policies --set DEFAULT
 # SELinux kernel args
@@ -41,11 +39,5 @@ RUN systemctl enable \
     qemu-guest-agent.service \
     selinux-lockdown.service \
     tailscaled.service
-# Ansible user
-RUN useradd -m -G wheel ansible && \
-    echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/wheel && \
-    mkdir -p /home/ansible/.ssh && \
-    chmod 700 /home/ansible/.ssh && \
-    chown -R ansible:ansible /home/ansible/.ssh
 
 RUN bootc container lint
