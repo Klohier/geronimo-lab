@@ -1,6 +1,6 @@
 ---
 - name: Open k3s firewall ports on server nodes
-  hosts: k3s-server
+  hosts: k3s_server
   become: true
   tasks:
     - name: Open k3s server ports
@@ -20,7 +20,7 @@
       changed_when: true
 
 - name: Open k3s firewall ports on agent nodes
-  hosts: k3s-agent
+  hosts: k3s_agent
   become: true
   tasks:
     - name: Open k3s agent ports
